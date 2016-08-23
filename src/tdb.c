@@ -702,9 +702,10 @@ TDB_EXPORT tdb_error tdb_set_opt(tdb *db,
             db->opt_event_filter = (const struct tdb_event_filter*)value.ptr;
             return 0;
         case TDB_OPT_CURSOR_EVENT_BUFFER_SIZE:
-            if (value.value > 0)
+            if (value.value > 0){
                 db->opt_cursor_event_buffer_size = value.value;
-            else
+                return 0;
+            }else
                 return TDB_ERR_INVALID_OPTION_VALUE;
         default:
             return TDB_ERR_UNKNOWN_OPTION;
@@ -790,4 +791,37 @@ TDB_EXPORT void tdb_event_filter_free(struct tdb_event_filter *filter)
 {
     free(filter->items);
     free(filter);
+}
+
+TDB_EXPORT tdb_error tdb_event_filter_get_item(const struct tdb_event_filter *filter,
+                                               uint64_t clause_index,
+                                               uint64_t item_index,
+                                               tdb_item *item,
+                                               int *is_negative)
+{
+    uint64_t clause, i;
+    for (clause = 0, i = 0; clause < clause_index; clause++){
+        i += filter->items[i] + 1;
+        if (i == filter->count)
+            goto invalid;
+    }
+    if (item_index * 2 < filter->items[i]){
+        i += item_index * 2 + 1;
+        *is_negative = filter->items[i] ? 1: 0;
+        *item = filter->items[i + 1];
+        return TDB_ERR_OK;
+    }
+invalid:
+    *item = 0;
+    *is_negative = 0;
+    return TDB_ERR_NO_SUCH_ITEM;
+}
+
+TDB_EXPORT uint64_t tdb_event_filter_num_clauses(
+    const struct tdb_event_filter *filter)
+{
+    uint64_t num_clauses, i;
+    for (num_clauses = 0, i = 0; i < filter->count; num_clauses++)
+        i += filter->items[i] + 1;
+    return num_clauses;
 }

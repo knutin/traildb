@@ -176,6 +176,17 @@ tdb_error tdb_event_filter_new_clause(struct tdb_event_filter *filter);
 /* Free an event filter */
 void tdb_event_filter_free(struct tdb_event_filter *filter);
 
+/* Get an item in a clause */
+tdb_error tdb_event_filter_get_item(const struct tdb_event_filter *filter,
+                                    uint64_t clause_index,
+                                    uint64_t item_index,
+                                    tdb_item *item,
+                                    int *is_negative);
+
+/* Get the number of clauses in this filter */
+uint64_t tdb_event_filter_num_clauses(const struct tdb_event_filter *filter);
+
+
 /*
 ------------
 Trail cursor
@@ -204,6 +215,38 @@ void tdb_cursor_unset_event_filter(tdb_cursor *cursor);
 /* Internal function used by tdb_cursor_next() */
 int _tdb_cursor_next_batch(tdb_cursor *cursor);
 
+/*
+------------
+Multi cursor
+------------
+*/
+
+/* Create a new multicursor */
+tdb_multi_cursor *tdb_multi_cursor_new(tdb_cursor **cursors,
+                                       uint64_t num_cursors);
+
+/*
+Reset the multicursor to reflect the underlying status of individual
+cursors. Call after tdb_get_trail() or tdb_cursor_next()
+*/
+void tdb_multi_cursor_reset(tdb_multi_cursor *mc);
+
+/* Return next event in the timestamp order from the underlying cursors */
+const tdb_multi_event *tdb_multi_cursor_next(tdb_multi_cursor *mcursor);
+
+/*
+Return a batch of maximum max_events in the timestamp order from the
+underlying cursors
+*/
+uint64_t tdb_multi_cursor_next_batch(tdb_multi_cursor *mcursor,
+                                     tdb_multi_event *events,
+                                     uint64_t max_events);
+
+/* Peek the next event in the cursor */
+const tdb_multi_event *tdb_multi_cursor_peek(tdb_multi_cursor *mcursor);
+
+/* Free multicursors */
+void tdb_multi_cursor_free(tdb_multi_cursor *mcursor);
 
 /*
 Return the next event from the cursor
@@ -226,6 +269,19 @@ __attribute__((visibility("default"))) inline const tdb_event *tdb_cursor_next(t
     }else
         return NULL;
 }
+
+/*
+Peek the next event in the cursor
+*/
+__attribute__((visibility("default"))) inline const tdb_event *tdb_cursor_peek(tdb_cursor *cursor)
+{
+    if (cursor->num_events_left > 0 || _tdb_cursor_next_batch(cursor)){
+        return (const tdb_event*)cursor->next_event;
+    }else
+        return NULL;
+}
+
+
 #pragma GCC diagnostic pop
 
 #endif /* __TRAILDB_H__ */

@@ -137,10 +137,24 @@ def build(bld, test_build=False):
     # Build tdbcli
     bld.program(
         target       = "tdb",
-        source       = bld.path.ant_glob("tdbcli/**/*.c"),
+        source       = bld.path.ant_glob("tdbcli/**/*.c") +
+                       bld.path.ant_glob("src/xxhash/*.c"),
         includes     = "src",
         use          = "traildb",
-        uselib       = ["ARCHIVE", "JUDY"],
+        ldflags      = ["-pthread"],
+        uselib       = ["JUDY"],
+    )
+
+    # Build libtdbindex.so
+    bld.shlib(
+        target       = "tdbindex",
+        source       = ["tdbcli/tdb_index.c", "tdbcli/thread_util.c"] +
+                       bld.path.ant_glob("src/xxhash/*.c"),
+        includes     = "src",
+        use          = "traildb",
+        ldflags      = ["-pthread"],
+        uselib       = ["JUDY"],
+        vnum            = "0",  # .so versioning
     )
 
     # Mark header files that must be installed
@@ -151,8 +165,10 @@ def build(bld, test_build=False):
         "src/tdb_limits.h"
     ])
 
-    # Build pkgconfig metadata file
-    pc = bld(source='traildb.pc.in', target='%s-%s.pc' % (APPNAME, VERSION), install_path='${PREFIX}/lib/pkgconfig')
+    # Build pkgconfig metadata file.
+    # We install into /usr/share/pkgconfig as that one seems to be used across all distributions.
+    # Otherwise, we might want to have distro-specific paths hardcoded here.
+    pc = bld(source='traildb.pc.in', target='%s-%s.pc' % (APPNAME, VERSION), install_path='${PREFIX}/share/pkgconfig')
     pc.env.prefix  = bld.env.PREFIX
     pc.env.version = VERSION
 
